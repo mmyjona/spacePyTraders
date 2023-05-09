@@ -103,6 +103,11 @@ class Client ():
             try:
                 r = make_request(method, self.url + endpoint, headers, params) 
                 # If an error returned from api 
+                try:
+                    r.json()
+                except json.decoder.JSONDecodeError:
+                    logging.error(f"response not json! len: {len(r.text)}, text: {r.text}")
+                    raise ServerException("json decode error")
                 if 'error' in r.json():
                     error = r.json()
                     code = error['error']['code']
@@ -124,7 +129,7 @@ class Client ():
                         raise ThrottleException(error)                        
 
                     # Retry if server error
-                    if code == 500 or code == 409:
+                    if code == 500 or code == 409 or code == 503:
                         raise ServerException(error)
                     
                     # Unknown handling for error
@@ -146,9 +151,6 @@ class Client ():
                     logging.info(se.message)
                     time.sleep(throttle_time)
                     continue
-            
-            except Exception as e:
-                return e
         
         # If failed to make call after 10 tries fail it
         raise(TooManyTriesException)
@@ -1089,30 +1091,26 @@ class Api ():
             str: Token if user valid else None
         """
         url = f"https://api.spacetraders.io/users/{self.username}/claim"
-        try:
-            res = make_request("POST", url, None, None)
-            if res.ok:
-                self.token = res.json()['token']
-                self.game.token = self.token
-                self.leaderboard.token = self.token
-                self.loans.token = self.token
-                self.locations.token = self.token
-                self.marketplace.token = self.token
-                self.purchaseOrders.token = self.token
-                self.sellOrders.token = self.token
-                self.ships.token = self.token
-                self.structures.token = self.token
-                self.systems.token = self.token
-                self.users.token = self.token
-                self.types.token = self.token
-                self.account = self.token
-                self.warpjump = self.token
-            else:
-                logging.exception(f"Code: {res.json()['error']['code']}, Message: {res.json()['error']['message']}")
-                return None
-        except Exception as e:
-            return e
-
+        res = make_request("POST", url, None, None)
+        if res.ok:
+            self.token = res.json()['token']
+            self.game.token = self.token
+            self.leaderboard.token = self.token
+            self.loans.token = self.token
+            self.locations.token = self.token
+            self.marketplace.token = self.token
+            self.purchaseOrders.token = self.token
+            self.sellOrders.token = self.token
+            self.ships.token = self.token
+            self.structures.token = self.token
+            self.systems.token = self.token
+            self.users.token = self.token
+            self.types.token = self.token
+            self.account = self.token
+            self.warpjump = self.token
+        else:
+            logging.exception(f"Code: {res.json()['error']['code']}, Message: {res.json()['error']['message']}")
+            return None
 
 #
 #
@@ -1304,7 +1302,7 @@ class Markets(Client):
 
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDY2OTM4NjY-view-market
         """
-        endpoint = f"systems/{system_symbol}/markets/{waypoint_symbol}"
+        endpoint = f"systems/{system_symbol}/waypoints/{waypoint_symbol}/market"
         warning_log = f"Unable to get markets in system: {system_symbol} & waypoint: {waypoint_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
@@ -1375,10 +1373,10 @@ class Trade(Client):
         """
         endpoint = f"my/ships/{ship_symbol}/sell"
         params = {
-            'tradeSymbol': trade_symbol,
+            'symbol': trade_symbol,
             'units': units
         }
-        warning_log = f"Unable to get purchase {units} units of good: {trade_symbol} onto ship: {ship_symbol}"
+        warning_log = f"Unable to get sell {units} units of good: {trade_symbol} onto ship: {ship_symbol}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
         return res if res else False
