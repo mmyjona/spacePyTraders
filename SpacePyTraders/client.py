@@ -10,8 +10,8 @@ import json
 
 
 URL = "https://api.spacetraders.io/"
-V2_URL = "https://v2-0-0.alpha.spacetraders.io/"
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(thread)d - %(message)s', level=logging.INFO)
+V2_URL = "https://api.spacetraders.io/v2/"
+logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s', level=logging.INFO)
 
 # Custom Exceptions
 # ------------------------------------------
@@ -107,11 +107,21 @@ class Client ():
                     error = r.json()
                     code = error['error']['code']
                     message = error['error']['message']
-                    logging.warning(f"An error has occurred when hitting: {r.request.method} {r.url} with parameters: {params}. Error: " + str(error))
+
                     
+                    # If cooldown error
+                    if code == 4000:
+                        if raw_res:
+                            return r
+                        else:
+                            return r.json()
+                    
+                    logging.warning(f"An error code {code} has occurred when hitting: {r.request.method} {r.url} with parameters: {params}. Error: " + str(error))
+                    
+
                     # If throttling error
                     if code == 42901:
-                        raise ThrottleException(error)
+                        raise ThrottleException(error)                        
 
                     # Retry if server error
                     if code == 500 or code == 409:
@@ -156,7 +166,7 @@ class Account (Client):
             dict: Returns a dictionary containing the user's details
         """
         endpoint = f"my/account"
-        warning_log = F"Unable to get {self.username} user info"
+        warning_log = f"Unable to get {self.username} user info"
         logging.info(f"Getting user info for {self.username}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -178,7 +188,7 @@ class FlightPlans(Client):
         """
         warnings.warn("get_active_flight_plans has now been moved to the Systems class. Place now use `systems.get_active_flight_plans()`. This method will remain until the next update.", DeprecationWarning)
         endpoint = f"systems/{symbol}/flight-plans"
-        warning_log = F"Unable to get flight plans for system: {symbol}."
+        warning_log = f"Unable to get flight plans for system: {symbol}."
         logging.info(f"Getting the flight plans in the {symbol} system")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -194,7 +204,7 @@ class FlightPlans(Client):
             dict : dict containing the details of the flight plan
         """
         endpoint = f"my/flight-plans/{flightPlanId}"
-        warning_log = F"Unable to get flight plan: {flightPlanId}."
+        warning_log = f"Unable to get flight plan: {flightPlanId}."
         logging.info(f"Getting flight plan: {flightPlanId}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -209,7 +219,7 @@ class FlightPlans(Client):
         """
         endpoint = f"my/flight-plans"
         params = {"shipId": shipId, "destination": destination}
-        warning_log = F"Unable to create Flight Plan for ship: {shipId}."
+        warning_log = f"Unable to create Flight Plan for ship: {shipId}."
         logging.debug(f"Creating flight plan for ship: {shipId} to destination: {destination}")
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -255,7 +265,7 @@ class Loans (Client):
         """
         warnings.warn("get_loans_available has now been moved to the Types class. Place now use `types.loans()`. This method will remain until the next update.")
         endpoint = f"types/loans"
-        warning_log = F"Unable to retrieve the loans available"
+        warning_log = f"Unable to retrieve the loans available"
         logging.info(f"Retrieving the loans currently available")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -268,7 +278,7 @@ class Loans (Client):
             dict: dict containing a list of loans
         """
         endpoint = f"my/loans"
-        warning_log = F"Unable to retrieve the loans of the user"
+        warning_log = f"Unable to retrieve the loans of the user"
         logging.info(f"Retrieving the loans of the user: {self.username}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -284,7 +294,7 @@ class Loans (Client):
             dict: Success or fail message
         """
         endpoint = f"my/loans/{loanId}"
-        warning_log = F"Unable to pay off loan: {loanId}"
+        warning_log = f"Unable to pay off loan: {loanId}"
         logging.info(f"Paying off loan")
         res = self.generic_api_call("PUT", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -300,7 +310,7 @@ class Loans (Client):
             dict: The loan taken
         """
         endpoint = f"my/loans"
-        warning_log = F"Unable to take loan of type: {type}"
+        warning_log = f"Unable to take loan of type: {type}"
         logging.info(f"Requesting {type} loan")
         params = {"type": type}
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
@@ -318,7 +328,7 @@ class Locations (Client):
             dict: A dict containing info about a location
         """
         endpoint = f"locations/{symbol}"
-        warning_log = F"Unable to get info for the location: {symbol}"
+        warning_log = f"Unable to get info for the location: {symbol}"
         logging.info(f"Getting location info for {symbol}")
         res = self.generic_api_call("GET", endpoint,token=self.token, warning_log=warning_log)
         return res if res else False
@@ -334,7 +344,7 @@ class Locations (Client):
             dict: A dict containing a JSON list of the ships docked at the location. 
         """
         endpoint = f"locations/{symbol}/ships"
-        warning_log = F"Unable to get ships docked at the location: {symbol}"
+        warning_log = f"Unable to get ships docked at the location: {symbol}"
         logging.info(f"Getting the ships docked at: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False    
@@ -354,7 +364,7 @@ class Locations (Client):
         """
         warnings.warn("get_system_locations has now moved to the Systems class. \n\nPlease now use `systems.get_system_locations()`. \n\nThis method will remain until the next update.")
         endpoint = f"systems/{symbol}/locations"
-        warning_log = F"Unable to get the locations in the system: {symbol}"
+        warning_log = f"Unable to get the locations in the system: {symbol}"
         logging.info(f"Getting the locations in system: {symbol}")
         params = {"type": type} if type is not None else None
         res = self.generic_api_call("GET", endpoint, params=params, token=self.token, warning_log=warning_log)
@@ -370,7 +380,7 @@ class Locations (Client):
             dict: A dict containing details of the location and a JSON list of the items available in the marketplace
         """
         endpoint = f"locations/{symbol}/marketplace"
-        warning_log = F"Unable to get the marketplace for the location: {symbol}"
+        warning_log = f"Unable to get the marketplace for the location: {symbol}"
         logging.info(f"Getting the marketplace for location: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False  
@@ -393,7 +403,7 @@ class Marketplace (Client):
         """
         warnings.warn("get_marketplace has now moved to the Locations class. \n\nPlease now use `location.get_marketplace()`. \n\nThis method will remain until the next update.")
         endpoint = f"locations/{symbol}/marketplace"
-        warning_log = F"Unable to get the marketplace for the location: {symbol}"
+        warning_log = f"Unable to get the marketplace for the location: {symbol}"
         logging.info(f"Getting the marketplace for location: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False  
@@ -414,7 +424,7 @@ class PurchaseOrders (Client):
         """
         endpoint = f"my/purchase-orders"
         params = {"shipId": shipId, "good": good, "quantity": quantity}
-        warning_log = F"Unable to make purchase order for ship: {shipId}, good: {good} & quantity: {quantity}"
+        warning_log = f"Unable to make purchase order for ship: {shipId}, good: {good} & quantity: {quantity}"
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
         return res if res else False
 
@@ -430,7 +440,7 @@ class SellOrders (Client):
         """
         endpoint = f"my/sell-orders"
         params = {"shipId": shipId, "good": good, "quantity": quantity}
-        warning_log = F"Unable to make sell order for ship: {shipId}, good: {good} & quantity: {quantity}"
+        warning_log = f"Unable to make sell order for ship: {shipId}, good: {good} & quantity: {quantity}"
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
         return res if res else False
 
@@ -445,7 +455,7 @@ class Ships (Client):
         """
         endpoint = f"my/ships"
         params = {"location": location, "type": type}
-        warning_log = F"Unable to buy ship type: {type}, at location: {location}."
+        warning_log = f"Unable to buy ship type: {type}, at location: {location}."
         logging.debug(f"Buying ship of type: {type} at location: {location}")
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -470,7 +480,7 @@ class Ships (Client):
                         No longer returns the location of the ships - see system.get_available_ships() for ships available in the system""", DeprecationWarning)
         endpoint = f"types/ships"
         params = {"class": type}
-        warning_log = F"Unable to get available ships. Class Filter: {type}"
+        warning_log = f"Unable to get available ships. Class Filter: {type}"
         logging.info(f"Getting available ships to purchase. Filter: {type}")
         res = self.generic_api_call("GET", endpoint, params=params, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -522,8 +532,7 @@ class Ships (Client):
         V2 API: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0MzE-view-ship
         """
         endpoint = f"my/ships/{shipId}"
-        warning_log = F"Unable to get info fo ship: {shipId}"
-        logging.info(f"Getting info on ship: {shipId}")
+        warning_log = f"Unable to get info fo ship: {shipId}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
 
@@ -538,8 +547,7 @@ class Ships (Client):
         V2 API: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0MzI-list-ships
         """
         endpoint = f"my/ships"
-        warning_log = F"Unable to get list of owned ships."
-        logging.info(f"Getting a list of owned ships")
+        warning_log = f"Unable to get list of owned ships."
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
 
@@ -568,9 +576,9 @@ class Ships (Client):
         V2 Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0MjQ-jettison-cargo
         """
         endpoint = f"my/ships/{shipId}/jettison"
-        warning_log = F"Unable to jettison cargo from ship. Params - shipId: {shipId}, good: {good}, quantity: {quantity}"
+        warning_log = f"Unable to jettison cargo from ship. Params - shipId: {shipId}, good: {good}, quantity: {quantity}"
         logging.info(f"Jettison the following cargo from ship: {shipId}, good: {good}, quantity: {quantity}")
-        params = {"good": good, "quantity": quantity}
+        params = {"symbol": good, "units": quantity}
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
         return res if res else False
 
@@ -612,7 +620,7 @@ class Ships (Client):
         API Link: https://api.spacetraders.io/#api-ships-TransferCargo
         """
         endpoint = f"my/ships/{fromShipId}/transfer"
-        warning_log = F"Unable to transfer {quantity} units of {good} from ship: {fromShipId} to ship: {toShipId}"
+        warning_log = f"Unable to transfer {quantity} units of {good} from ship: {fromShipId} to ship: {toShipId}"
         logging.info(f"Transferring {quantity} units of {good} from ship: {fromShipId} to ship: {toShipId}")
         params = {"toShipId": toShipId, "good": good, "quantity": quantity}
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
@@ -639,24 +647,24 @@ class Ships (Client):
         logging.info(f"Unable to perform scan of mode: {mode}")
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
         return res if res else False
-
-    def scan_cooldown(self, shipSymbol, raw_res=False, throttle_time=10):
-        """See how long your ship must wait before it can scan again.
+    
+    def get_cooldown(self, ship_symbol, raw_res=False, throttle_time=10):
+        """Retrieve the details of your ship's reactor cooldown.
 
         Args:
-            shipSymbol (str): The ship's symbol (id)
+            ship_symbol (str): Symbol of the ship to check it's cooldown for
             raw_res (bool, optional): Return raw respose insteas of JSON. Defaults to False.
             throttle_time (int, optional): How long to wait before attempting call again. Defaults to 10.
 
         Returns:
-            dict: Return JSON repsonse 
+            dict: JSON response
 
-            API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDUyMzgxMTc-scan-cooldown
+            API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDUyMzY2MDg-jump-cooldown
         """
-        endpoint = f"my/ships/{shipSymbol}/scan"
-        warning_log = f"Unable to obtain scan cooldown for ship: {shipSymbol}"
-        logging.info(f"Unable to obtain scan cooldown for ship: {shipSymbol}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        endpoint = f"my/ships/{ship_symbol}/cooldown"
+        warning_log = f"Unable to get cooldown: {ship_symbol}"
+        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
+                                    raw_res=raw_res, throttle_time=throttle_time)
         return res if res else False
 
 class Structures (Client):
@@ -670,7 +678,7 @@ class Structures (Client):
         """
         endpoint = f"my/structures"
         params = {"location": location, "type": type}
-        warning_log = F"Unable to create structure type: {type}, at location: {location}."
+        warning_log = f"Unable to create structure type: {type}, at location: {location}."
         logging.info(f"Creating structure of type: {type} at location: {location}")
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -696,7 +704,7 @@ class Structures (Client):
         """
         endpoint = f"my/structures/{structureId}/deposit" if user_owned else f"structures/{structureId}/deposit"
         params = {"shipId": shipId, "good": good, "quantity": quantity}
-        warning_log = F"Unable to deposit {quantity} units of {good} from ship: {shipId} into structure: {structureId}"
+        warning_log = f"Unable to deposit {quantity} units of {good} from ship: {shipId} into structure: {structureId}"
         logging.info(f"Depositing {quantity} units of {good} from ship: {shipId} into structure: {structureId}")
         res = self.generic_api_call("POST", endpoint, params=params, 
                                     token=self.token, warning_log=warning_log, 
@@ -721,7 +729,7 @@ class Structures (Client):
 
         """
         endpoint = f"my/structures/{structureId}" if user_owned else f"structures/{structureId}"
-        warning_log = F"Unable to get the info for structure: {structureId}"
+        warning_log = f"Unable to get the info for structure: {structureId}"
         logging.info(f"Getting info about structure: {structureId}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -734,7 +742,7 @@ class Structures (Client):
             dict : dict containings a JSON list of the structures the user owns
         """
         endpoint = f"my/structures"
-        warning_log = F"Unable to get the info about your structures"
+        warning_log = f"Unable to get the info about your structures"
         logging.info(f"Getting info about the user's structures")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -754,7 +762,7 @@ class Structures (Client):
         """
         endpoint = f"my/structures/{structureId}/transfer"
         params = {"shipId": shipId, "good": good, "quantity": quantity}
-        warning_log = F"Unable to transfer {quantity} units of {good} from structure: {structureId} into ship: {shipId}"
+        warning_log = f"Unable to transfer {quantity} units of {good} from structure: {structureId} into ship: {shipId}"
         logging.info(f"Transferring {quantity} units of {good} from structure: {structureId} into ship: {shipId}")
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -762,16 +770,15 @@ class Structures (Client):
 class Systems (Client):
     # Get system info
     def get_systems(self, raw_res=False, throttle_time=10):
-        """[ENDPOINT CURRENTLY BROKEN - DEVS FIXING]
-        
+        """
         Get info about the systems and their locations.
 
         Returns:
             dict: dict containing a JSON list of the different systems
         """
         # Get user
-        endpoint = f"game/systems"
-        warning_log = F"Unable to get systems"
+        endpoint = f"systems"
+        warning_log = f"Unable to get systems"
         logging.info(f"Getting systems")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False    
@@ -787,7 +794,7 @@ class Systems (Client):
             dict : dict containing a list of flight plans for each system as the key
         """
         endpoint = f"systems/{symbol}/flight-plans"
-        warning_log = F"Unable to get flight plans for system: {symbol}."
+        warning_log = f"Unable to get flight plans for system: {symbol}."
         logging.info(f"Getting the flight plans in the {symbol} system")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
@@ -803,7 +810,7 @@ class Systems (Client):
             dict: A dict containing a JSON list of the locations in the system
         """
         endpoint = f"systems/{symbol}/locations"
-        warning_log = F"Unable to get the locations in the system: {symbol}"
+        warning_log = f"Unable to get the locations in the system: {symbol}"
         logging.info(f"Getting the locations in system: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False  
@@ -818,7 +825,7 @@ class Systems (Client):
             dict: A dict containing a JSON list of the docked ships in the system
         """
         endpoint = f"systems/{symbol}/ships"
-        warning_log = F"Unable to get the docked ships in the system: {symbol}"
+        warning_log = f"Unable to get the docked ships in the system: {symbol}"
         logging.info(f"Getting the docked ships in system: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False 
@@ -848,7 +855,7 @@ class Systems (Client):
             dict: A dict containing a list of the available ships for sale
         """
         endpoint = f"systems/{symbol}/ship-listings"
-        warning_log = F"Unable to get the listed ships in system: {symbol}"
+        warning_log = f"Unable to get the listed ships in system: {symbol}"
         logging.info(f"Getting the ships available for sale: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False 
@@ -870,7 +877,7 @@ class Systems (Client):
         """
         endpoint = f"my/ships/{ship_symbol}/chart"
         warning_log = f"Unable to chart the waypoint: {ship_symbol}"
-        logging.info(f"Unable to chart the waypoint: {ship_symbol}")
+        logging.info(f"Charting the waypoint: {ship_symbol}")
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False 
 
@@ -888,7 +895,7 @@ class Systems (Client):
         """
         endpoint = f"systems"
         warning_log = f"Unable to view systems"
-        logging.info(f"Unable to view systems")
+        logging.info(f"Getting info to view systems")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False 
     
@@ -908,7 +915,7 @@ class Systems (Client):
         """
         endpoint = f"systems/{system_symbol}/waypoints"
         warning_log = f"Unable to get list of waypoints in system: {system_symbol}"
-        logging.info(f"Unable to get list of waypoints in system: {system_symbol}")
+        logging.info(f"Getting list of waypoints in system: {system_symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False
 
@@ -947,7 +954,7 @@ class Users (Client):
         # Get user
         warnings.warn("Users class is being deprecated and replaced by the `Account` class. \nTo get your info please now use Api.account.info()", DeprecationWarning)
         endpoint = f"my/account"
-        warning_log = F"Unable to get {self.username} user info"
+        warning_log = f"Unable to get {self.username} user info"
         logging.info(f"Getting user info for {self.username}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else False    
@@ -964,7 +971,7 @@ class Types (Client):
             dict: A dict containing a list of all the goods in the game
         """
         endpoint = f"types/goods"
-        warning_log = F"Unable to get available goods"
+        warning_log = f"Unable to get available goods"
         logging.info(f"Getting available goods")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
                                     raw_res=raw_res, throttle_time=throttle_time)
@@ -981,7 +988,7 @@ class Types (Client):
             dict: A dict containing a list of all the loans in the game
         """
         endpoint = f"types/loans"
-        warning_log = F"Unable to get available loans"
+        warning_log = f"Unable to get available loans"
         logging.info(f"Getting available loans")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
                                     raw_res=raw_res, throttle_time=throttle_time)
@@ -998,7 +1005,7 @@ class Types (Client):
             dict: A dict containing a list of all the structures in the game
         """
         endpoint = f"types/structures"
-        warning_log = F"Unable to get available structures"
+        warning_log = f"Unable to get available structures"
         logging.info(f"Getting available structures")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
                                     raw_res=raw_res, throttle_time=throttle_time)
@@ -1015,7 +1022,7 @@ class Types (Client):
             dict: A dict containing a list of all the ships in the game
         """
         endpoint = f"types/ships"
-        warning_log = F"Unable to get available ships"
+        warning_log = f"Unable to get available ships"
         logging.info(f"Getting available ships")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
                                     raw_res=raw_res, throttle_time=throttle_time)
@@ -1033,7 +1040,7 @@ class WarpJump (Client):
             dict: A dict containing a list of all the goods in the game
         """
         endpoint = f"my/warp-jumps"
-        warning_log = F"Ship was unable to travel through warp jump"
+        warning_log = f"Ship was unable to travel through warp jump"
         params = {"shipId": shipId}
         logging.info(f"Attempting travel through warp jump")
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log, params=params,
@@ -1451,25 +1458,6 @@ class Navigation(Client):
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
         return res if res else False
-
-    def jump_cooldown(self, ship_symbol, raw_res=False, throttle_time=10):
-        """See how long your ship has on cooldown
-
-        Args:
-            ship_symbol (str): Symbol of the ship to check it's cooldown for
-            raw_res (bool, optional): Return raw respose insteas of JSON. Defaults to False.
-            throttle_time (int, optional): How long to wait before attempting call again. Defaults to 10.
-
-        Returns:
-            dict: JSON response
-
-            API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDUyMzY2MDg-jump-cooldown
-        """
-        endpoint = f"my/ships/{ship_symbol}/jump"
-        warning_log = f"Unable to jump ship: {ship_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
     
     def refuel_ship(self, ship_symbol, raw_res=False, throttle_time=10):
         """Fully refuel a ship
@@ -1527,8 +1515,8 @@ class Navigation(Client):
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ5MzQ3MzU-navigate-ship
         """
         endpoint = f"my/ships/{ship_symbol}/navigate"
-        params = {'destination': destination}
-        warning_log = f"Unable to navigate ship: {ship_symbol} to destination: {destination}"
+        params = {'waypointSymbol': destination}
+        warning_log = f"Unable to navigate ship: {ship_symbol} to waypoint: {destination}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
         return res if res else False
@@ -1546,7 +1534,7 @@ class Navigation(Client):
         
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ5MzQ3MzY-navigation-status
         """
-        endpoint = f"my/ships/{ship_symbol}/navigate"
+        endpoint = f"my/ships/{ship_symbol}/nav"
         warning_log = f"Unable to get navigation status for ship: {ship_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
@@ -1571,9 +1559,9 @@ class Contracts(Client):
 
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0MjE-deliver-on-contract
         """
-        endpoint = f"my/ships/{ship_symbol}/deliver"
+        endpoint = f"my/contracts/{contract_id}/deliver"
         params={
-            'contractId': contract_id,
+            'shipSymbol': ship_symbol,
             'tradeSymbol': trade_symbol,
             'units': units
         }
@@ -1676,25 +1664,6 @@ class Extract(Client):
                                     raw_res=raw_res, throttle_time=throttle_time, params=survey)
         return res if res else False
 
-    def extraction_cooldown(self, ship_symbol, raw_res=False, throttle_time=10):
-        """Get the status of your last extraction.
-
-        Args:
-            ship_symbol (str): Symbol of ship to get status for
-            raw_res (bool, optional): Return raw respose insteas of JSON. Defaults to False.
-            throttle_time (int, optional): How long to wait before attempting call again. Defaults to 10.
-
-        Returns:
-            dict: JSON response
-
-            API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ5MzU0NDQ-extraction-cooldown
-        """
-        endpoint = f"my/ships/{ship_symbol}/extract"
-        warning_log = f"Get the status of your last extraction: {ship_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
-
     def survey_waypoint(self, ship_symbol, raw_res=False, throttle_time=10):
         """If you want to target specific yields for an extraction, you can survey a waypoint, 
         such as an asteroid field, and send the survey in the body of the extract request. 
@@ -1721,25 +1690,6 @@ class Extract(Client):
                                     raw_res=raw_res, throttle_time=throttle_time)
         return res if res else False
 
-    def survey_cooldown(self, ship_symbol, raw_res=False, throttle_time=10):
-        """Executing a survey will initiate a cooldown for a number of seconds before you can call it again. 
-        This endpoint returns the details of your cooldown, or a 404 if there is no cooldown for the survey action.
-
-        Args:
-            ship_symbol (str): symbol of ship to check status of cooldown
-            raw_res (bool, optional): Return raw respose insteas of JSON. Defaults to False.
-            throttle_time (int, optional): How long to wait before attempting call again. Defaults to 10.
-
-        Returns:
-            dict: JSON response
-
-            API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ5MzU0NTM-survey-cooldown
-        """
-        endpoint = f"my/ships/{ship_symbol}/survey"
-        warning_log = f"Unable to check on status of cooldown for ship: {ship_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
 
 class Shipyard(Client):
     """Function specific to handling shipyard"""
