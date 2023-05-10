@@ -171,7 +171,7 @@ class Account (Client):
         warning_log = f"Unable to get {self.username} user info"
         logging.info(f"Getting user info for {self.username}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
 class FlightPlans(Client):
     # Get all active flights
@@ -193,7 +193,7 @@ class FlightPlans(Client):
         warning_log = f"Unable to get flight plans for system: {symbol}."
         logging.info(f"Getting the flight plans in the {symbol} system")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Get Existing Flight
     def get_flight_plan(self, flightPlanId, raw_res=False, throttle_time=10):
@@ -209,7 +209,7 @@ class FlightPlans(Client):
         warning_log = f"Unable to get flight plan: {flightPlanId}."
         logging.info(f"Getting flight plan: {flightPlanId}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Create Flight Plan
     def new_flight_plan(self, shipId, destination, raw_res=False, throttle_time=10):
@@ -224,7 +224,7 @@ class FlightPlans(Client):
         warning_log = f"Unable to create Flight Plan for ship: {shipId}."
         logging.debug(f"Creating flight plan for ship: {shipId} to destination: {destination}")
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
 class Game (Client):
     # Get game status
@@ -235,7 +235,7 @@ class Game (Client):
         warning_log = "Game is currently down"
         logging.info(f"Checking if game is up")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
 class Leaderboard (Client):
     def get_player_net_worths(self, raw_res=False, throttle_time=10):
@@ -252,7 +252,7 @@ class Leaderboard (Client):
         warning_log = "Unable to retrieve the net worth leaderboard"
         logging.debug(f"Retreiving the net worth leaderboard")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
 class Loans (Client):
     # Get available loans
@@ -270,7 +270,7 @@ class Loans (Client):
         warning_log = f"Unable to retrieve the loans available"
         logging.info(f"Retrieving the loans currently available")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Get user's loans
     def get_user_loans(self, raw_res=False, throttle_time=10):
@@ -283,7 +283,7 @@ class Loans (Client):
         warning_log = f"Unable to retrieve the loans of the user"
         logging.info(f"Retrieving the loans of the user: {self.username}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Pay off loan
     def pay_off_loan(self, loanId, raw_res=False, throttle_time=10):
@@ -299,7 +299,7 @@ class Loans (Client):
         warning_log = f"Unable to pay off loan: {loanId}"
         logging.info(f"Paying off loan")
         res = self.generic_api_call("PUT", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Request new loan
     def request_loan(self, type, raw_res=False, throttle_time=10):
@@ -316,7 +316,7 @@ class Loans (Client):
         logging.info(f"Requesting {type} loan")
         params = {"type": type}
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
 class Locations (Client):
     # Get Location
@@ -333,7 +333,7 @@ class Locations (Client):
         warning_log = f"Unable to get info for the location: {symbol}"
         logging.info(f"Getting location info for {symbol}")
         res = self.generic_api_call("GET", endpoint,token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Get Ships at Location
     def get_ships_at_location(self, symbol, raw_res=False, throttle_time=10):
@@ -349,7 +349,7 @@ class Locations (Client):
         warning_log = f"Unable to get ships docked at the location: {symbol}"
         logging.info(f"Getting the ships docked at: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False    
+        return res if res else {}  
 
     # Get System's Locations
     def get_system_locations(self, symbol, type=None, raw_res=False, throttle_time=10):
@@ -370,7 +370,7 @@ class Locations (Client):
         logging.info(f"Getting the locations in system: {symbol}")
         params = {"type": type} if type is not None else None
         res = self.generic_api_call("GET", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False  
+        return res if res else {}
     
     def get_marketplace(self, symbol, raw_res=False, throttle_time=10):
         """Get the marketplace for the location provided
@@ -385,7 +385,7 @@ class Locations (Client):
         warning_log = f"Unable to get the marketplace for the location: {symbol}"
         logging.info(f"Getting the marketplace for location: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False  
+        return res if res else {}
 
 class Marketplace (Client):
     """THIS CLASS IS BEING DEPRECATED
@@ -408,7 +408,7 @@ class Marketplace (Client):
         warning_log = f"Unable to get the marketplace for the location: {symbol}"
         logging.info(f"Getting the marketplace for location: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False  
+        return res if res else {}
 
 class PurchaseOrders (Client):
     def new_purchase_order(self, shipId, good, quantity, raw_res=False, throttle_time=10):
@@ -428,7 +428,7 @@ class PurchaseOrders (Client):
         params = {"shipId": shipId, "good": good, "quantity": quantity}
         warning_log = f"Unable to make purchase order for ship: {shipId}, good: {good} & quantity: {quantity}"
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
 class SellOrders (Client):
     # Sell Orders
@@ -444,7 +444,7 @@ class SellOrders (Client):
         params = {"shipId": shipId, "good": good, "quantity": quantity}
         warning_log = f"Unable to make sell order for ship: {shipId}, good: {good} & quantity: {quantity}"
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
 class Ships (Client):
     def buy_ship(self, location, type, raw_res=False, throttle_time=10):
@@ -460,7 +460,7 @@ class Ships (Client):
         warning_log = f"Unable to buy ship type: {type}, at location: {location}."
         logging.debug(f"Buying ship of type: {type} at location: {location}")
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Get available ships
     def get_available_ships(self, type=None, raw_res=False, throttle_time=10):
@@ -485,7 +485,7 @@ class Ships (Client):
         warning_log = f"Unable to get available ships. Class Filter: {type}"
         logging.info(f"Getting available ships to purchase. Filter: {type}")
         res = self.generic_api_call("GET", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Get Ship
     def get_ship(self, shipId, raw_res=False, throttle_time=10):
@@ -536,7 +536,7 @@ class Ships (Client):
         endpoint = f"my/ships/{shipId}"
         warning_log = f"Unable to get info fo ship: {shipId}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Get Users ships
     def get_user_ships(self, raw_res=False, throttle_time=10):
@@ -551,7 +551,7 @@ class Ships (Client):
         endpoint = f"my/ships"
         warning_log = f"Unable to get list of owned ships."
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Jettison Cargo
     def jettinson_cargo(self, shipId, good, quantity, raw_res=False, throttle_time=10):
@@ -582,7 +582,7 @@ class Ships (Client):
         logging.info(f"Jettison the following cargo from ship: {shipId}, good: {good}, quantity: {quantity}")
         params = {"symbol": good, "units": quantity}
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Scrap Ship
     def scrap_ship(self, shipId, raw_res=False, throttle_time=10):
@@ -626,7 +626,7 @@ class Ships (Client):
         logging.info(f"Transferring {quantity} units of {good} from ship: {fromShipId} to ship: {toShipId}")
         params = {"toShipId": toShipId, "good": good, "quantity": quantity}
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     def scan(self, shipSymbol, mode, raw_res=False, throttle_time=10):
         """Execute a ship scan to view approach / departing ships, system information or details about a waypoint. 
@@ -648,7 +648,7 @@ class Ships (Client):
         warning_log = f"Unable to perform scan of mode: {mode}"
         logging.info(f"Unable to perform scan of mode: {mode}")
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
     
     def get_cooldown(self, ship_symbol, raw_res=False, throttle_time=10):
         """Retrieve the details of your ship's reactor cooldown.
@@ -667,7 +667,7 @@ class Ships (Client):
         warning_log = f"Unable to get cooldown: {ship_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
 class Structures (Client):
     # Create a new structure
@@ -683,7 +683,7 @@ class Structures (Client):
         warning_log = f"Unable to create structure type: {type}, at location: {location}."
         logging.info(f"Creating structure of type: {type} at location: {location}")
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Deposit Goods
     def deposit_goods(self, structureId, shipId, good, quantity, user_owned=True, raw_res=False, throttle_time=10):
@@ -711,7 +711,7 @@ class Structures (Client):
         res = self.generic_api_call("POST", endpoint, params=params, 
                                     token=self.token, warning_log=warning_log, 
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     # Get your structure info
     def get_structure(self, structureId, user_owned=True, raw_res=False, throttle_time=10):
@@ -734,7 +734,7 @@ class Structures (Client):
         warning_log = f"Unable to get the info for structure: {structureId}"
         logging.info(f"Getting info about structure: {structureId}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Get your strucutres
     def get_users_structures(self, raw_res=False, throttle_time=10):
@@ -747,7 +747,7 @@ class Structures (Client):
         warning_log = f"Unable to get the info about your structures"
         logging.info(f"Getting info about the user's structures")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Transfer goods
     def transfer_goods(self, structureId, shipId, good, quantity, raw_res=False, throttle_time=10):
@@ -767,7 +767,7 @@ class Structures (Client):
         warning_log = f"Unable to transfer {quantity} units of {good} from structure: {structureId} into ship: {shipId}"
         logging.info(f"Transferring {quantity} units of {good} from structure: {structureId} into ship: {shipId}")
         res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
 class Systems (Client):
     # Get system info
@@ -783,7 +783,7 @@ class Systems (Client):
         warning_log = f"Unable to get systems"
         logging.info(f"Getting systems")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False    
+        return res if res else {}  
 
         # Get all active flights
     def get_active_flight_plans(self, symbol, raw_res=False, throttle_time=10):
@@ -799,7 +799,7 @@ class Systems (Client):
         warning_log = f"Unable to get flight plans for system: {symbol}."
         logging.info(f"Getting the flight plans in the {symbol} system")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     # Get System's Locations
     def get_system_locations(self, symbol, raw_res=False, throttle_time=10):
@@ -815,7 +815,7 @@ class Systems (Client):
         warning_log = f"Unable to get the locations in the system: {symbol}"
         logging.info(f"Getting the locations in system: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False  
+        return res if res else {}
 
     def get_system_docked_ships(self, symbol, raw_res=False, throttle_time=10):
         """Get docked ships in the defined system
@@ -830,7 +830,7 @@ class Systems (Client):
         warning_log = f"Unable to get the docked ships in the system: {symbol}"
         logging.info(f"Getting the docked ships in system: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False 
+        return res if res else {} 
 
     def get_system(self, symbol, raw_res=False, throttle_time=10):
         """Get info on the definined system
@@ -845,7 +845,7 @@ class Systems (Client):
         warning_log = f"Unable to get the  system: {symbol}"
         logging.info(f"Getting the system: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False 
+        return res if res else {} 
 
     def get_available_ships(self, symbol, raw_res=False, throttle_time=10):
         """Get the ships listed for sale in the system defined
@@ -860,7 +860,7 @@ class Systems (Client):
         warning_log = f"Unable to get the listed ships in system: {symbol}"
         logging.info(f"Getting the ships available for sale: {symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False 
+        return res if res else {} 
 
     def chart_waypoint(self, ship_symbol, raw_res=False, throttle_time=10):
         """Chart a new system or waypoint. 
@@ -881,7 +881,7 @@ class Systems (Client):
         warning_log = f"Unable to chart the waypoint: {ship_symbol}"
         logging.info(f"Charting the waypoint: {ship_symbol}")
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False 
+        return res if res else {} 
 
     def list_systems(self, raw_res=False, throttle_time=10):
         """Return a list of all systems.
@@ -899,7 +899,7 @@ class Systems (Client):
         warning_log = f"Unable to view systems"
         logging.info(f"Getting info to view systems")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False 
+        return res if res else {} 
     
     def list_waypoints(self, system_symbol, raw_res=False, throttle_time=10):
         """Fetch all of the waypoints for a given system. 
@@ -919,7 +919,7 @@ class Systems (Client):
         warning_log = f"Unable to get list of waypoints in system: {system_symbol}"
         logging.info(f"Getting list of waypoints in system: {system_symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
     def view_waypoint(self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10):
         """View the details of a waypoint.
@@ -937,7 +937,7 @@ class Systems (Client):
         warning_log = f"Unable to get details of waypoint: {waypoint_symbol}"
         logging.info(f"Unable to get details of waypoint: {waypoint_symbol}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False
+        return res if res else {}
 
 class Users (Client):
     """THIS CLASS IS BEING DEPRECATED
@@ -959,7 +959,7 @@ class Users (Client):
         warning_log = f"Unable to get {self.username} user info"
         logging.info(f"Getting user info for {self.username}")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else False    
+        return res if res else {}  
 
 class Types (Client):
     def goods(self, raw_res=False, throttle_time=10):
@@ -977,7 +977,7 @@ class Types (Client):
         logging.info(f"Getting available goods")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False 
+        return res if res else {} 
 
     def loans(self, raw_res=False, throttle_time=10):
         """Get's all the available loans in the game
@@ -994,7 +994,7 @@ class Types (Client):
         logging.info(f"Getting available loans")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False 
+        return res if res else {} 
     
     def structures(self, raw_res=False, throttle_time=10):
         """Get's all the available structures in the game
@@ -1011,7 +1011,7 @@ class Types (Client):
         logging.info(f"Getting available structures")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False 
+        return res if res else {} 
 
     def ships(self, raw_res=False, throttle_time=10):
         """Get's all the available ships in the game
@@ -1028,7 +1028,7 @@ class Types (Client):
         logging.info(f"Getting available ships")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False 
+        return res if res else {} 
 
 class WarpJump (Client):
     def attempt_jump(self, shipId, raw_res=False, throttle_time=10):
@@ -1047,7 +1047,7 @@ class WarpJump (Client):
         logging.info(f"Attempting travel through warp jump")
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log, params=params,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False 
+        return res if res else {} 
 
 class Api ():
     def __init__(self, username=None, token=None, v2=False):
@@ -1149,7 +1149,7 @@ class Agent(Client):
         warning_log = f"Unable to retrieve agent details"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     def register_new_agent(self, symbol, faction, raw_res=False, throttle_time=10):
         """Registers a new agent in the Space Traders world
@@ -1171,7 +1171,7 @@ class Agent(Client):
         }
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
-        return res if res else False
+        return res if res else {}
 
 
 class Markets(Client):
@@ -1202,7 +1202,7 @@ class Markets(Client):
         warning_log = f"Unable to deploy communicatino relay. Ship: {ship_symbol}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
-        return res if res else False
+        return res if res else {}
 
     def trade_imports(self, trade_symbol, raw_res=False, throttle_time=10):
         """TODO: Explain what this endpoint does
@@ -1221,7 +1221,7 @@ class Markets(Client):
         warning_log = f"Unable to view trade import for trade: {trade_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     def trade_exports(self, trade_symbol, raw_res=False, throttle_time=10):
         """TODO: Explain what this endpoint does
@@ -1240,7 +1240,7 @@ class Markets(Client):
         warning_log = f"Unable to view trade export for trade: {trade_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
     
     def trade_exchanges(self, trade_symbol, raw_res=False, throttle_time=10):
         """TODO: Explain what this endpoint does
@@ -1259,7 +1259,7 @@ class Markets(Client):
         warning_log = f"Unable to view trade exchange for trade good: {trade_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     def list_markets(self, system_symbol, raw_res=False, throttle_time=10):
         """Retrieve a list of all charted markets in the given system. 
@@ -1281,7 +1281,7 @@ class Markets(Client):
         warning_log = f"Unable to get list of markets in system: {system_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     def view_market(self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10):
         """Retrieve imports, exports and exchange data from a marketplace. 
@@ -1306,7 +1306,7 @@ class Markets(Client):
         warning_log = f"Unable to get markets in system: {system_symbol} & waypoint: {waypoint_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
 
 class Trade(Client):
@@ -1344,7 +1344,7 @@ class Trade(Client):
         warning_log = f"Unable to get purchase {units} units of good: {trade_symbol} onto ship: {ship_symbol}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
-        return res if res else False
+        return res if res else {}
 
     def sell_cargo(self, ship_symbol, trade_symbol, units, raw_res=False, throttle_time=10):
         """Sell cargo to a waypoint's market
@@ -1379,7 +1379,7 @@ class Trade(Client):
         warning_log = f"Unable to get sell {units} units of good: {trade_symbol} onto ship: {ship_symbol}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
-        return res if res else False
+        return res if res else {}
 
 
 class Navigation(Client):
@@ -1407,7 +1407,7 @@ class Navigation(Client):
         warning_log = f"Unable to dock ship: {ship_symbol}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     def orbit_ship(self, ship_symbol, raw_res=False, throttle_time=10):
         """Transition your ship from docked into orbit. 
@@ -1434,7 +1434,7 @@ class Navigation(Client):
         warning_log = f"Unable to orbit ship: {ship_symbol}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
     
     def jump_ship(self, ship_symbol, destination, raw_res=False, throttle_time=10):
         """Navigate a ship between systems
@@ -1455,7 +1455,7 @@ class Navigation(Client):
         warning_log = f"Unable to jump ship: {ship_symbol} to System: {destination}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
-        return res if res else False
+        return res if res else {}
     
     def refuel_ship(self, ship_symbol, raw_res=False, throttle_time=10):
         """Fully refuel a ship
@@ -1482,7 +1482,7 @@ class Navigation(Client):
         warning_log = f"Unable to refuel ship: {ship_symbol}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     def navigate_ship(self, ship_symbol, destination, raw_res=False, throttle_time=10):
         """Fly a ship from one place to another.
@@ -1517,7 +1517,7 @@ class Navigation(Client):
         warning_log = f"Unable to navigate ship: {ship_symbol} to waypoint: {destination}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
-        return res if res else False
+        return res if res else {}
 
     def navigation_status(self, ship_symbol, raw_res=False, throttle_time=10):
         """Checks to see the status of a ships navigation path
@@ -1536,7 +1536,7 @@ class Navigation(Client):
         warning_log = f"Unable to get navigation status for ship: {ship_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
 
 class Contracts(Client):
@@ -1566,7 +1566,7 @@ class Contracts(Client):
         warning_log = f"Unable to deliver trade goods for contract: {ship_symbol}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
-        return res if res else False
+        return res if res else {}
 
     def list_contracts(self, raw_res=False, throttle_time=10):
         """List all of your contracts.
@@ -1584,7 +1584,7 @@ class Contracts(Client):
         warning_log = f"Unable to get a list of your contracts"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     def contract_details(self, contract_id, raw_res=False, throttle_time=10):
         """Get the details of a contract by ID.
@@ -1601,7 +1601,7 @@ class Contracts(Client):
         warning_log = f"Unable to get details of contract: {contract_id}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     def accept_contract(self, contract_id, raw_res=False, throttle_time=10):
         """Accept a contract.
@@ -1620,7 +1620,7 @@ class Contracts(Client):
         warning_log = f"Unable to accept contract: {contract_id}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
 
 class Extract(Client):
@@ -1660,7 +1660,7 @@ class Extract(Client):
         warning_log = f"Unable to extract resources: {ship_symbol}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=survey)
-        return res if res else False
+        return res if res else {}
 
     def survey_waypoint(self, ship_symbol, raw_res=False, throttle_time=10):
         """If you want to target specific yields for an extraction, you can survey a waypoint, 
@@ -1686,7 +1686,7 @@ class Extract(Client):
         warning_log = f"Unable to perform a survey of a waypoint: {ship_symbol}"
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
 
 class Shipyard(Client):
@@ -1709,7 +1709,7 @@ class Shipyard(Client):
         params = {'id': listing_id}
         res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time, params=params)
-        return res if res else False
+        return res if res else {}
 
     def list_shipyards(self, system_symbol, raw_res=False, throttle_time=10):
         """Returns a list of all shipyards in a system.
@@ -1728,7 +1728,7 @@ class Shipyard(Client):
         warning_log = f"Unable to view shipyards in system: {system_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     def shipyard_details(self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10):
         """Get details about a shipyard
@@ -1748,7 +1748,7 @@ class Shipyard(Client):
         warning_log = f"Unable to view shipyard in system: {system_symbol}, waypoint: {waypoint_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
     def shipyard_listings(self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10):
         """View ships available for purchase in shipyard
@@ -1766,7 +1766,7 @@ class Shipyard(Client):
         warning_log = f"Unable to view ships in shipyard in system: {system_symbol}, waypoint: {waypoint_symbol}"
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
                                     raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else False
+        return res if res else {}
 
 
 if __name__ == "__main__":
