@@ -17,20 +17,20 @@ logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)
 # ------------------------------------------
 @dataclass
 class ThrottleException(Exception):
-    data: field(default_factory=dict)
     message: str = "Throttle limit was reached. Pausing to wait for throttle"
+    data:dict =  field(default_factory=dict)
 
 @dataclass
 class ServerException(Exception):
-    data: field(default_factory=dict)
     message: str = "Server Error. Pausing before trying again"
+    data:dict =  field(default_factory=dict)
 
 @dataclass
 class TooManyTriesException(Exception):
     message: str = "Has failed too many times to make API call. "
 
 @sleep_and_retry
-@limits(calls=2, period=1.2)
+@limits(calls=20, period=12)
 def make_request(method, url, headers, params):
     """Checks which method to use and then makes the actual request to Space Traders API
 
@@ -41,8 +41,7 @@ def make_request(method, url, headers, params):
         params (dict): parameters of the request
 
     Returns:
-        Request: Returns the request
-
+        Response: request response
     Exceptions:
         Exception: Invalid method - must be GET, POST, PUT or DELETE
     """
@@ -58,9 +57,8 @@ def make_request(method, url, headers, params):
     elif method == "DELETE":
         return requests.delete(url, headers=headers, data=params)
 
-    # If an Invalid method provided throw exception
-    if method not in ["GET", "POST", "PUT", "DELETE"]:
-        logging.exception(f'Invalid method provided: {method}')
+    logging.exception(f'Invalid method provided: {method}')
+    raise ValueError("Invalid method provided")
 
 @dataclass
 class Client ():
@@ -94,19 +92,25 @@ class Client ():
         Returns:
             Any: depends on the return from the API but likely JSON
         """
+        if token is None:
+            raise ValueError("Token is required")
         headers = {
             'Authorization': 'Bearer ' + token,
             'Content-Type': 'application/json'
         }
         # Make the request to the Space Traders API
-        for i in range(10):
+        for _ in range(10):
             try:
                 r = make_request(method, self.url + endpoint, headers, params) 
                 # If an error returned from api 
                 try:
+                    if r is None:
+                        raise ServerException("No response returned from server")
                     r.json()
                 except json.decoder.JSONDecodeError:
-                    logging.error(f"response not json! len: {len(r.text)}, text: {r.text}")
+                    if hasattr(r, 'text'):
+                        r_text = getattr(r, 'text', "")
+                        logging.error(f"response not json! len: {len(r_text)}, text: {r_text}")
                     raise ServerException("json decode error")
                 if 'error' in r.json():
                     error = r.json()
@@ -170,6 +174,8 @@ class Account (Client):
         endpoint = f"my/account"
         warning_log = f"Unable to get {self.username} user info"
         logging.info(f"Getting user info for {self.username}")
+        if not self.token:
+            raise ValueError("No token provided")
         res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
         return res if res else {}
 
@@ -1092,6 +1098,8 @@ class Api ():
         """
         url = f"https://api.spacetraders.io/users/{self.username}/claim"
         res = make_request("POST", url, None, None)
+        if res is None:
+            raise ServerException("No response returned from server")
         if res.ok:
             self.token = res.json()['token']
             self.game.token = self.token
