@@ -148,7 +148,7 @@ class Client:
                     )
 
                     # If throttling error
-                    if code == 42901:
+                    if code == 429:
                         raise ThrottleException(error)
 
                     # Retry if server error
