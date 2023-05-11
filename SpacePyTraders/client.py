@@ -8,26 +8,32 @@ from ratelimit import limits, sleep_and_retry
 import json
 
 
-
 URL = "https://api.spacetraders.io/"
 V2_URL = "https://api.spacetraders.io/v2/"
-logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s', level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s",
+    level=logging.INFO,
+)
+
 
 # Custom Exceptions
 # ------------------------------------------
 @dataclass
 class ThrottleException(Exception):
     message: str = "Throttle limit was reached. Pausing to wait for throttle"
-    data:dict =  field(default_factory=dict)
+    data: dict = field(default_factory=dict)
+
 
 @dataclass
 class ServerException(Exception):
     message: str = "Server Error. Pausing before trying again"
-    data:dict =  field(default_factory=dict)
+    data: dict = field(default_factory=dict)
+
 
 @dataclass
 class TooManyTriesException(Exception):
     message: str = "Has failed too many times to make API call. "
+
 
 @sleep_and_retry
 @limits(calls=20, period=12)
@@ -52,21 +58,22 @@ def make_request(method, url, headers, params):
         return requests.get(url, headers=headers, params=params)
     elif method == "POST":
         return requests.post(url, headers=headers, data=params)
-    elif method == "PUT": 
+    elif method == "PUT":
         return requests.put(url, headers=headers, data=params)
     elif method == "DELETE":
         return requests.delete(url, headers=headers, data=params)
 
-    logging.exception(f'Invalid method provided: {method}')
+    logging.exception(f"Invalid method provided: {method}")
     raise ValueError("Invalid method provided")
 
+
 @dataclass
-class Client ():
+class Client:
     def __init__(self, username=None, token=None, v2=False):
-        """The Client class handles all user interaction with the Space Traders API. 
-        The class is initiated with the username and token of the user. 
-        If the user does not provide a token the 'create_user' method will attempt to fire and create a user with the username provided. 
-        If a user with the name already exists an exception will fire. 
+        """The Client class handles all user interaction with the Space Traders API.
+        The class is initiated with the username and token of the user.
+        If the user does not provide a token the 'create_user' method will attempt to fire and create a user with the username provided.
+        If a user with the name already exists an exception will fire.
 
         Args:
             username (str): Username of the user
@@ -77,9 +84,18 @@ class Client ():
         self.token = token
         self.url = V2_URL if v2 else URL
 
-    def generic_api_call(self, method, endpoint, params=None, token=None, warning_log=None, raw_res=False, throttle_time=10):
-        """Function to make consolidate parameters to make an API call to the Space Traders API. 
-        Handles any throttling or error returned by the Space Traders API. 
+    def generic_api_call(
+        self,
+        method,
+        endpoint,
+        params=None,
+        token=None,
+        warning_log=None,
+        raw_res=False,
+        throttle_time=10,
+    ):
+        """Function to make consolidate parameters to make an API call to the Space Traders API.
+        Handles any throttling or error returned by the Space Traders API.
 
         Args:
             method (str): The HTTP method to use. GET, POST, PUT or DELETE
@@ -95,50 +111,55 @@ class Client ():
         if token is None:
             raise ValueError("Token is required")
         headers = {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json'
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json",
         }
         # Make the request to the Space Traders API
         for _ in range(10):
             try:
-                r = make_request(method, self.url + endpoint, headers, params) 
-                # If an error returned from api 
+                r = make_request(method, self.url + endpoint, headers, params)
+                # If an error returned from api
                 try:
                     if r is None:
                         raise ServerException("No response returned from server")
                     r.json()
                 except json.decoder.JSONDecodeError:
-                    if hasattr(r, 'text'):
-                        r_text = getattr(r, 'text', "")
-                        logging.error(f"response not json! len: {len(r_text)}, text: {r_text}")
+                    if hasattr(r, "text"):
+                        r_text = getattr(r, "text", "")
+                        logging.error(
+                            f"response not json! len: {len(r_text)}, text: {r_text}"
+                        )
                     raise ServerException("json decode error")
-                if 'error' in r.json():
+                if "error" in r.json():
                     error = r.json()
-                    code = error['error']['code']
-                    message = error['error']['message']
+                    code = error["error"]["code"]
+                    message = error["error"]["message"]
 
-                    
                     # If cooldown error
                     if code == 4000:
                         if raw_res:
                             return r
                         else:
                             return r.json()
-                    
-                    logging.warning(f"An error code {code} has occurred when hitting: {r.request.method} {r.url} with parameters: {params}. Error: " + str(error))
-                    
+
+                    logging.warning(
+                        f"An error code {code} has occurred when hitting: {r.request.method} {r.url} with parameters: {params}. Error: "
+                        + str(error)
+                    )
 
                     # If throttling error
                     if code == 42901:
-                        raise ThrottleException(error)                        
+                        raise ThrottleException(error)
 
                     # Retry if server error
                     if code == 500 or code == 409 or code == 503:
                         raise ServerException(error)
-                    
+
                     # Unknown handling for error
                     logging.warning(warning_log)
-                    logging.exception(f"Something broke the script. Code: {code} Error Message: {message} ")
+                    logging.exception(
+                        f"Something broke the script. Code: {code} Error Message: {message} "
+                    )
                     return False
                 # If successful return r
                 if raw_res:
@@ -147,19 +168,20 @@ class Client ():
                     return r.json()
 
             except ThrottleException as te:
-                    logging.info(te.message)
-                    time.sleep(throttle_time)
-                    continue
+                logging.info(te.message)
+                time.sleep(throttle_time)
+                continue
 
             except ServerException as se:
-                    logging.info(se.message)
-                    time.sleep(throttle_time)
-                    continue
-        
-        # If failed to make call after 10 tries fail it
-        raise(TooManyTriesException)
+                logging.info(se.message)
+                time.sleep(throttle_time)
+                continue
 
-class Account (Client):
+        # If failed to make call after 10 tries fail it
+        raise (TooManyTriesException)
+
+
+class Account(Client):
     # Used to get info about user
     def info(self, raw_res=False, throttle_time=10):
         """Get's the user's info
@@ -176,8 +198,11 @@ class Account (Client):
         logging.info(f"Getting user info for {self.username}")
         if not self.token:
             raise ValueError("No token provided")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
+
 
 class FlightPlans(Client):
     # Get all active flights
@@ -185,7 +210,7 @@ class FlightPlans(Client):
         """THIS METHOD IS BEING DEPRECATED
         This method has been moved to the systems class. Please now use `systems.get_active_flight_plans()`
         to get the active flight plans in the system given.
-        
+
         Get all the currently active flight plans in the system given. This is for all global accounts
 
         Args:
@@ -194,11 +219,16 @@ class FlightPlans(Client):
         Returns:
             dict : dict containing a list of flight plans for each system as the key
         """
-        warnings.warn("get_active_flight_plans has now been moved to the Systems class. Place now use `systems.get_active_flight_plans()`. This method will remain until the next update.", DeprecationWarning)
+        warnings.warn(
+            "get_active_flight_plans has now been moved to the Systems class. Place now use `systems.get_active_flight_plans()`. This method will remain until the next update.",
+            DeprecationWarning,
+        )
         endpoint = f"systems/{symbol}/flight-plans"
         warning_log = f"Unable to get flight plans for system: {symbol}."
         logging.info(f"Getting the flight plans in the {symbol} system")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Get Existing Flight
@@ -214,7 +244,9 @@ class FlightPlans(Client):
         endpoint = f"my/flight-plans/{flightPlanId}"
         warning_log = f"Unable to get flight plan: {flightPlanId}."
         logging.info(f"Getting flight plan: {flightPlanId}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Create Flight Plan
@@ -228,22 +260,29 @@ class FlightPlans(Client):
         endpoint = f"my/flight-plans"
         params = {"shipId": shipId, "destination": destination}
         warning_log = f"Unable to create Flight Plan for ship: {shipId}."
-        logging.debug(f"Creating flight plan for ship: {shipId} to destination: {destination}")
-        res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
+        logging.debug(
+            f"Creating flight plan for ship: {shipId} to destination: {destination}"
+        )
+        res = self.generic_api_call(
+            "POST", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-class Game (Client):
+
+class Game(Client):
     # Get game status
     def get_game_status(self, raw_res=False, throttle_time=10):
-        """Check to see if game is up
-        """
+        """Check to see if game is up"""
         endpoint = f"game/status"
         warning_log = "Game is currently down"
         logging.info(f"Checking if game is up")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-class Leaderboard (Client):
+
+class Leaderboard(Client):
     def get_player_net_worths(self, raw_res=False, throttle_time=10):
         """Returns a ranking list of players net-worth. It also returns the players net-worth
 
@@ -257,25 +296,32 @@ class Leaderboard (Client):
         endpoint = f"game/leaderboard/net-worth"
         warning_log = "Unable to retrieve the net worth leaderboard"
         logging.debug(f"Retreiving the net worth leaderboard")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-class Loans (Client):
+
+class Loans(Client):
     # Get available loans
     def get_loans_available(self, raw_res=False, throttle_time=10):
         """THIS METHOD IS BEING DEPRECATED
         This method has now been moved to the types class. Please now use `types.get_loans_available()`.
-        
+
         Gets the list of loans available
 
         Returns:
             dict: dict containing a list of loans
         """
-        warnings.warn("get_loans_available has now been moved to the Types class. Place now use `types.loans()`. This method will remain until the next update.")
+        warnings.warn(
+            "get_loans_available has now been moved to the Types class. Place now use `types.loans()`. This method will remain until the next update."
+        )
         endpoint = f"types/loans"
         warning_log = f"Unable to retrieve the loans available"
         logging.info(f"Retrieving the loans currently available")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Get user's loans
@@ -288,7 +334,9 @@ class Loans (Client):
         endpoint = f"my/loans"
         warning_log = f"Unable to retrieve the loans of the user"
         logging.info(f"Retrieving the loans of the user: {self.username}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Pay off loan
@@ -304,7 +352,9 @@ class Loans (Client):
         endpoint = f"my/loans/{loanId}"
         warning_log = f"Unable to pay off loan: {loanId}"
         logging.info(f"Paying off loan")
-        res = self.generic_api_call("PUT", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "PUT", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Request new loan
@@ -321,10 +371,13 @@ class Loans (Client):
         warning_log = f"Unable to take loan of type: {type}"
         logging.info(f"Requesting {type} loan")
         params = {"type": type}
-        res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "POST", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-class Locations (Client):
+
+class Locations(Client):
     # Get Location
     def get_location(self, symbol, raw_res=False, throttle_time=10):
         """Get info on a location with the provided Symbol
@@ -338,7 +391,9 @@ class Locations (Client):
         endpoint = f"locations/{symbol}"
         warning_log = f"Unable to get info for the location: {symbol}"
         logging.info(f"Getting location info for {symbol}")
-        res = self.generic_api_call("GET", endpoint,token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Get Ships at Location
@@ -349,13 +404,15 @@ class Locations (Client):
             symbol (str): The symbol for the location eg: OE-PM
 
         Returns:
-            dict: A dict containing a JSON list of the ships docked at the location. 
+            dict: A dict containing a JSON list of the ships docked at the location.
         """
         endpoint = f"locations/{symbol}/ships"
         warning_log = f"Unable to get ships docked at the location: {symbol}"
         logging.info(f"Getting the ships docked at: {symbol}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else {}  
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
+        return res if res else {}
 
     # Get System's Locations
     def get_system_locations(self, symbol, type=None, raw_res=False, throttle_time=10):
@@ -370,14 +427,18 @@ class Locations (Client):
         Returns:
             dict: A dict containing a JSON list of the locations in the system
         """
-        warnings.warn("get_system_locations has now moved to the Systems class. \n\nPlease now use `systems.get_system_locations()`. \n\nThis method will remain until the next update.")
+        warnings.warn(
+            "get_system_locations has now moved to the Systems class. \n\nPlease now use `systems.get_system_locations()`. \n\nThis method will remain until the next update."
+        )
         endpoint = f"systems/{symbol}/locations"
         warning_log = f"Unable to get the locations in the system: {symbol}"
         logging.info(f"Getting the locations in system: {symbol}")
         params = {"type": type} if type is not None else None
-        res = self.generic_api_call("GET", endpoint, params=params, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
-    
+
     def get_marketplace(self, symbol, raw_res=False, throttle_time=10):
         """Get the marketplace for the location provided
 
@@ -390,12 +451,16 @@ class Locations (Client):
         endpoint = f"locations/{symbol}/marketplace"
         warning_log = f"Unable to get the marketplace for the location: {symbol}"
         logging.info(f"Getting the marketplace for location: {symbol}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-class Marketplace (Client):
+
+class Marketplace(Client):
     """THIS CLASS IS BEING DEPRECATED
     All containing methods have been removed or are being deprecated."""
+
     # Get Location's marketplace
     def get_marketplace(self, symbol, raw_res=False, throttle_time=10):
         """THIS METHOD IS BEING DEPRECATED
@@ -409,16 +474,23 @@ class Marketplace (Client):
         Returns:
             dict: A dict containing details of the location and a JSON list of the items available in the marketplace
         """
-        warnings.warn("get_marketplace has now moved to the Locations class. \n\nPlease now use `location.get_marketplace()`. \n\nThis method will remain until the next update.")
+        warnings.warn(
+            "get_marketplace has now moved to the Locations class. \n\nPlease now use `location.get_marketplace()`. \n\nThis method will remain until the next update."
+        )
         endpoint = f"locations/{symbol}/marketplace"
         warning_log = f"Unable to get the marketplace for the location: {symbol}"
         logging.info(f"Getting the marketplace for location: {symbol}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-class PurchaseOrders (Client):
-    def new_purchase_order(self, shipId, good, quantity, raw_res=False, throttle_time=10):
-        """Makes a purchase order to the location the ship is currently located at. 
+
+class PurchaseOrders(Client):
+    def new_purchase_order(
+        self, shipId, good, quantity, raw_res=False, throttle_time=10
+    ):
+        """Makes a purchase order to the location the ship is currently located at.
 
         Args:
             shipId (str): ID of the ship to load the goods onto
@@ -426,20 +498,23 @@ class PurchaseOrders (Client):
             quantity (int): How many units of the good to purchase
             raw_res (bool, default = False): Returns the request response's JSON by default. Can be set to True to return the request response.
             throttle_time (int, default = 10): Sets how long the wait time before attempting call again. Default is 10 seconds
-        
+
         Returns:
             dict: A dict containing the user's remaining credits, the ships updated cargo and the order just made.
         """
         endpoint = f"my/purchase-orders"
         params = {"shipId": shipId, "good": good, "quantity": quantity}
         warning_log = f"Unable to make purchase order for ship: {shipId}, good: {good} & quantity: {quantity}"
-        res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "POST", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-class SellOrders (Client):
+
+class SellOrders(Client):
     # Sell Orders
     def new_sell_order(self, shipId, good, quantity, raw_res=False, throttle_time=10):
-        """Makes a sell order to the location the ship is currently located at. 
+        """Makes a sell order to the location the ship is currently located at.
 
         Args:
             shipId (str): ID of the ship to offload the goods from
@@ -449,12 +524,15 @@ class SellOrders (Client):
         endpoint = f"my/sell-orders"
         params = {"shipId": shipId, "good": good, "quantity": quantity}
         warning_log = f"Unable to make sell order for ship: {shipId}, good: {good} & quantity: {quantity}"
-        res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "POST", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-class Ships (Client):
+
+class Ships(Client):
     def buy_ship(self, location, type, raw_res=False, throttle_time=10):
-        """Buys a ship of the type provided and at the location provided. 
+        """Buys a ship of the type provided and at the location provided.
         Certain ships can only be bought from specific locations. Use get_available_ships to see full list.
 
         Args:
@@ -465,7 +543,9 @@ class Ships (Client):
         params = {"location": location, "type": type}
         warning_log = f"Unable to buy ship type: {type}, at location: {location}."
         logging.debug(f"Buying ship of type: {type} at location: {location}")
-        res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "POST", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Get available ships
@@ -479,18 +559,23 @@ class Ships (Client):
             type (str, optional): Filter the list of ships to the class level. eg 'MK-II' (Note: those are capital i's). Defaults to None.
 
         Returns:
-            dict: A dict containing a JSON list of ships that are available. 
+            dict: A dict containing a JSON list of ships that are available.
 
         API LINK: https://api.spacetraders.io/#api-ships-ships
         """
-        warnings.warn("""get_available_ships is being deprecated and is moving to the Types class. \n
+        warnings.warn(
+            """get_available_ships is being deprecated and is moving to the Types class. \n
                         To get your info please now use Api.types.ships()\n
-                        No longer returns the location of the ships - see system.get_available_ships() for ships available in the system""", DeprecationWarning)
+                        No longer returns the location of the ships - see system.get_available_ships() for ships available in the system""",
+            DeprecationWarning,
+        )
         endpoint = f"types/ships"
         params = {"class": type}
         warning_log = f"Unable to get available ships. Class Filter: {type}"
         logging.info(f"Getting available ships to purchase. Filter: {type}")
-        res = self.generic_api_call("GET", endpoint, params=params, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Get Ship
@@ -541,7 +626,9 @@ class Ships (Client):
         """
         endpoint = f"my/ships/{shipId}"
         warning_log = f"Unable to get info fo ship: {shipId}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Get Users ships
@@ -556,7 +643,9 @@ class Ships (Client):
         """
         endpoint = f"my/ships"
         warning_log = f"Unable to get list of owned ships."
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Jettison Cargo
@@ -585,14 +674,18 @@ class Ships (Client):
         """
         endpoint = f"my/ships/{shipId}/jettison"
         warning_log = f"Unable to jettison cargo from ship. Params - shipId: {shipId}, good: {good}, quantity: {quantity}"
-        logging.info(f"Jettison the following cargo from ship: {shipId}, good: {good}, quantity: {quantity}")
+        logging.info(
+            f"Jettison the following cargo from ship: {shipId}, good: {good}, quantity: {quantity}"
+        )
         params = {"symbol": good, "units": quantity}
-        res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "POST", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Scrap Ship
     def scrap_ship(self, shipId, raw_res=False, throttle_time=10):
-        """Scraps the shipId for a small amount of credits. 
+        """Scraps the shipId for a small amount of credits.
         Ships need to be scraped at a location with a Shipyard.
         Known Shipyards:
         - OE-PM-TR
@@ -609,11 +702,15 @@ class Ships (Client):
         endpoint = f"my/ships/{shipId}/"
         warning_log = f"Failed to scrap ship ({shipId})."
         logging.info(f"Scrapping ship: {shipId}")
-        res = self.generic_api_call("DELETE", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "DELETE", endpoint, token=self.token, warning_log=warning_log
+        )
         return res
 
     # Transfer Cargo
-    def transfer_cargo(self, fromShipId, toShipId, good, quantity, raw_res=False, throttle_time=10):
+    def transfer_cargo(
+        self, fromShipId, toShipId, good, quantity, raw_res=False, throttle_time=10
+    ):
         """Move cargo from own ship to another that are in the same location
 
         Args:
@@ -629,13 +726,17 @@ class Ships (Client):
         """
         endpoint = f"my/ships/{fromShipId}/transfer"
         warning_log = f"Unable to transfer {quantity} units of {good} from ship: {fromShipId} to ship: {toShipId}"
-        logging.info(f"Transferring {quantity} units of {good} from ship: {fromShipId} to ship: {toShipId}")
+        logging.info(
+            f"Transferring {quantity} units of {good} from ship: {fromShipId} to ship: {toShipId}"
+        )
         params = {"toShipId": toShipId, "good": good, "quantity": quantity}
-        res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "POST", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     def scan(self, shipSymbol, mode, raw_res=False, throttle_time=10):
-        """Execute a ship scan to view approach / departing ships, system information or details about a waypoint. 
+        """Execute a ship scan to view approach / departing ships, system information or details about a waypoint.
            Send a scan mode to select the type of scan performed by your ship.
 
         Args:
@@ -645,7 +746,7 @@ class Ships (Client):
             throttle_time (int, optional): How long to wait before attempting call again. Defaults to 10.
 
         Returns:
-            dict: Return JSON repsonse 
+            dict: Return JSON repsonse
 
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0Mjk-scan
         """
@@ -653,9 +754,11 @@ class Ships (Client):
         params = {"mode": mode}
         warning_log = f"Unable to perform scan of mode: {mode}"
         logging.info(f"Unable to perform scan of mode: {mode}")
-        res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "POST", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
-    
+
     def get_cooldown(self, ship_symbol, raw_res=False, throttle_time=10):
         """Retrieve the details of your ship's reactor cooldown.
 
@@ -671,11 +774,18 @@ class Ships (Client):
         """
         endpoint = f"my/ships/{ship_symbol}/cooldown"
         warning_log = f"Unable to get cooldown: {ship_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
-class Structures (Client):
+
+class Structures(Client):
     # Create a new structure
     def create_new_structure(self, location, type, raw_res=False, throttle_time=10):
         """Create a new structure on the location provided. Note that only certain structures can be built at specific locations
@@ -686,13 +796,26 @@ class Structures (Client):
         """
         endpoint = f"my/structures"
         params = {"location": location, "type": type}
-        warning_log = f"Unable to create structure type: {type}, at location: {location}."
+        warning_log = (
+            f"Unable to create structure type: {type}, at location: {location}."
+        )
         logging.info(f"Creating structure of type: {type} at location: {location}")
-        res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "POST", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Deposit Goods
-    def deposit_goods(self, structureId, shipId, good, quantity, user_owned=True, raw_res=False, throttle_time=10):
+    def deposit_goods(
+        self,
+        structureId,
+        shipId,
+        good,
+        quantity,
+        user_owned=True,
+        raw_res=False,
+        throttle_time=10,
+    ):
         """Deposit goods from a ship to a structure. The ship must be at the location the structure has been built.
 
         Args:
@@ -701,7 +824,7 @@ class Structures (Client):
             good (str): symbol of the good to deposite. Eg: FUEL
             quantity (str): How many units of the good to deposit
             user_owned (bool): Determines which endpoint to use: deposit to user structure or any structure
-        
+
         Returns:
             dict : dict containing the updated info of the ship and structure
 
@@ -710,18 +833,32 @@ class Structures (Client):
             - https://api.spacetraders.io/#api-structures-DepositStructure
 
         """
-        endpoint = f"my/structures/{structureId}/deposit" if user_owned else f"structures/{structureId}/deposit"
+        endpoint = (
+            f"my/structures/{structureId}/deposit"
+            if user_owned
+            else f"structures/{structureId}/deposit"
+        )
         params = {"shipId": shipId, "good": good, "quantity": quantity}
         warning_log = f"Unable to deposit {quantity} units of {good} from ship: {shipId} into structure: {structureId}"
-        logging.info(f"Depositing {quantity} units of {good} from ship: {shipId} into structure: {structureId}")
-        res = self.generic_api_call("POST", endpoint, params=params, 
-                                    token=self.token, warning_log=warning_log, 
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        logging.info(
+            f"Depositing {quantity} units of {good} from ship: {shipId} into structure: {structureId}"
+        )
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            params=params,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
     # Get your structure info
-    def get_structure(self, structureId, user_owned=True, raw_res=False, throttle_time=10):
-        """Get the info about a structure. 
+    def get_structure(
+        self, structureId, user_owned=True, raw_res=False, throttle_time=10
+    ):
+        """Get the info about a structure.
 
         the `user_owned` argument will determine whether the `my` endpoint is used or note.
         Possible Endpoints:
@@ -736,10 +873,16 @@ class Structures (Client):
             dict : dict containing the info of the strucutre
 
         """
-        endpoint = f"my/structures/{structureId}" if user_owned else f"structures/{structureId}"
+        endpoint = (
+            f"my/structures/{structureId}"
+            if user_owned
+            else f"structures/{structureId}"
+        )
         warning_log = f"Unable to get the info for structure: {structureId}"
         logging.info(f"Getting info about structure: {structureId}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Get your strucutres
@@ -752,11 +895,15 @@ class Structures (Client):
         endpoint = f"my/structures"
         warning_log = f"Unable to get the info about your structures"
         logging.info(f"Getting info about the user's structures")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Transfer goods
-    def transfer_goods(self, structureId, shipId, good, quantity, raw_res=False, throttle_time=10):
+    def transfer_goods(
+        self, structureId, shipId, good, quantity, raw_res=False, throttle_time=10
+    ):
         """Transfer goods from a structure to a ship. The ship must be docked at the location the structure has been built.
 
         Args:
@@ -764,18 +911,23 @@ class Structures (Client):
             shipId (str): ID of the ship to take the goods from
             good (str): symbol of the good to deposite. Eg: FUEL
             quantity (str): How many units of the good to deposit
-        
+
         Returns:
             dict : dict containing the updated info of the ship and structure
         """
         endpoint = f"my/structures/{structureId}/transfer"
         params = {"shipId": shipId, "good": good, "quantity": quantity}
         warning_log = f"Unable to transfer {quantity} units of {good} from structure: {structureId} into ship: {shipId}"
-        logging.info(f"Transferring {quantity} units of {good} from structure: {structureId} into ship: {shipId}")
-        res = self.generic_api_call("POST", endpoint, params=params, token=self.token, warning_log=warning_log)
+        logging.info(
+            f"Transferring {quantity} units of {good} from structure: {structureId} into ship: {shipId}"
+        )
+        res = self.generic_api_call(
+            "POST", endpoint, params=params, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-class Systems (Client):
+
+class Systems(Client):
     # Get system info
     def get_systems(self, raw_res=False, throttle_time=10):
         """
@@ -788,10 +940,13 @@ class Systems (Client):
         endpoint = f"systems"
         warning_log = f"Unable to get systems"
         logging.info(f"Getting systems")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else {}  
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
+        return res if res else {}
 
         # Get all active flights
+
     def get_active_flight_plans(self, symbol, raw_res=False, throttle_time=10):
         """Get all the currently active flight plans in the system given. This is for all global accounts
 
@@ -804,7 +959,9 @@ class Systems (Client):
         endpoint = f"systems/{symbol}/flight-plans"
         warning_log = f"Unable to get flight plans for system: {symbol}."
         logging.info(f"Getting the flight plans in the {symbol} system")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     # Get System's Locations
@@ -820,7 +977,9 @@ class Systems (Client):
         endpoint = f"systems/{symbol}/locations"
         warning_log = f"Unable to get the locations in the system: {symbol}"
         logging.info(f"Getting the locations in system: {symbol}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
     def get_system_docked_ships(self, symbol, raw_res=False, throttle_time=10):
@@ -835,8 +994,10 @@ class Systems (Client):
         endpoint = f"systems/{symbol}/ships"
         warning_log = f"Unable to get the docked ships in the system: {symbol}"
         logging.info(f"Getting the docked ships in system: {symbol}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else {} 
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
+        return res if res else {}
 
     def get_system(self, symbol, raw_res=False, throttle_time=10):
         """Get info on the definined system
@@ -850,8 +1011,10 @@ class Systems (Client):
         endpoint = f"systems/{symbol}"
         warning_log = f"Unable to get the  system: {symbol}"
         logging.info(f"Getting the system: {symbol}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else {} 
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
+        return res if res else {}
 
     def get_available_ships(self, symbol, raw_res=False, throttle_time=10):
         """Get the ships listed for sale in the system defined
@@ -865,12 +1028,14 @@ class Systems (Client):
         endpoint = f"systems/{symbol}/ship-listings"
         warning_log = f"Unable to get the listed ships in system: {symbol}"
         logging.info(f"Getting the ships available for sale: {symbol}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else {} 
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
+        return res if res else {}
 
     def chart_waypoint(self, ship_symbol, raw_res=False, throttle_time=10):
-        """Chart a new system or waypoint. 
-        Returns an array of the symbols that have been charted, 
+        """Chart a new system or waypoint.
+        Returns an array of the symbols that have been charted,
         including the system and the waypoint if both were uncharted, or just the waypoint.
 
         Args:
@@ -886,8 +1051,10 @@ class Systems (Client):
         endpoint = f"my/ships/{ship_symbol}/chart"
         warning_log = f"Unable to chart the waypoint: {ship_symbol}"
         logging.info(f"Charting the waypoint: {ship_symbol}")
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else {} 
+        res = self.generic_api_call(
+            "POST", endpoint, token=self.token, warning_log=warning_log
+        )
+        return res if res else {}
 
     def list_systems(self, raw_res=False, throttle_time=10):
         """Return a list of all systems.
@@ -904,11 +1071,13 @@ class Systems (Client):
         endpoint = f"systems"
         warning_log = f"Unable to view systems"
         logging.info(f"Getting info to view systems")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else {} 
-    
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
+        return res if res else {}
+
     def list_waypoints(self, system_symbol, raw_res=False, throttle_time=10):
-        """Fetch all of the waypoints for a given system. 
+        """Fetch all of the waypoints for a given system.
         System must be charted or a ship must be present to return waypoint details.
 
         Args:
@@ -924,10 +1093,14 @@ class Systems (Client):
         endpoint = f"systems/{system_symbol}/waypoints"
         warning_log = f"Unable to get list of waypoints in system: {system_symbol}"
         logging.info(f"Getting list of waypoints in system: {system_symbol}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-    def view_waypoint(self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10):
+    def view_waypoint(
+        self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10
+    ):
         """View the details of a waypoint.
 
         Args:
@@ -942,10 +1115,13 @@ class Systems (Client):
         endpoint = f"systems/{system_symbol}/waypoints/{waypoint_symbol}"
         warning_log = f"Unable to get details of waypoint: {waypoint_symbol}"
         logging.info(f"Unable to get details of waypoint: {waypoint_symbol}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
         return res if res else {}
 
-class Users (Client):
+
+class Users(Client):
     """THIS CLASS IS BEING DEPRECATED
     All methods have been removed or are being deprecated."""
 
@@ -953,21 +1129,27 @@ class Users (Client):
         """THIS METHOD IS BEING DEPRECATED
 
         This method has now moved to the Account class. Please now use `account.info()`
-        
+
         Get your user info
 
         Returns:
             dict: dict containing your user data
         """
         # Get user
-        warnings.warn("Users class is being deprecated and replaced by the `Account` class. \nTo get your info please now use Api.account.info()", DeprecationWarning)
+        warnings.warn(
+            "Users class is being deprecated and replaced by the `Account` class. \nTo get your info please now use Api.account.info()",
+            DeprecationWarning,
+        )
         endpoint = f"my/account"
         warning_log = f"Unable to get {self.username} user info"
         logging.info(f"Getting user info for {self.username}")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log)
-        return res if res else {}  
+        res = self.generic_api_call(
+            "GET", endpoint, token=self.token, warning_log=warning_log
+        )
+        return res if res else {}
 
-class Types (Client):
+
+class Types(Client):
     def goods(self, raw_res=False, throttle_time=10):
         """Get's all the available goods in the game
 
@@ -981,9 +1163,15 @@ class Types (Client):
         endpoint = f"types/goods"
         warning_log = f"Unable to get available goods"
         logging.info(f"Getting available goods")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
-                                    raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else {} 
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
+        return res if res else {}
 
     def loans(self, raw_res=False, throttle_time=10):
         """Get's all the available loans in the game
@@ -998,10 +1186,16 @@ class Types (Client):
         endpoint = f"types/loans"
         warning_log = f"Unable to get available loans"
         logging.info(f"Getting available loans")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
-                                    raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else {} 
-    
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
+        return res if res else {}
+
     def structures(self, raw_res=False, throttle_time=10):
         """Get's all the available structures in the game
 
@@ -1015,9 +1209,15 @@ class Types (Client):
         endpoint = f"types/structures"
         warning_log = f"Unable to get available structures"
         logging.info(f"Getting available structures")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
-                                    raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else {} 
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
+        return res if res else {}
 
     def ships(self, raw_res=False, throttle_time=10):
         """Get's all the available ships in the game
@@ -1032,11 +1232,18 @@ class Types (Client):
         endpoint = f"types/ships"
         warning_log = f"Unable to get available ships"
         logging.info(f"Getting available ships")
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log, 
-                                    raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else {} 
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
+        return res if res else {}
 
-class WarpJump (Client):
+
+class WarpJump(Client):
     def attempt_jump(self, shipId, raw_res=False, throttle_time=10):
         """Attempts sending a ship through a warp jump
 
@@ -1051,11 +1258,19 @@ class WarpJump (Client):
         warning_log = f"Ship was unable to travel through warp jump"
         params = {"shipId": shipId}
         logging.info(f"Attempting travel through warp jump")
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log, params=params,
-                                    raw_res=raw_res, throttle_time=throttle_time)
-        return res if res else {} 
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            params=params,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
+        return res if res else {}
 
-class Api ():
+
+class Api:
     def __init__(self, username=None, token=None, v2=False):
         self.token = token
         self.v2 = v2
@@ -1101,7 +1316,7 @@ class Api ():
         if res is None:
             raise ServerException("No response returned from server")
         if res.ok:
-            self.token = res.json()['token']
+            self.token = res.json()["token"]
             self.game.token = self.token
             self.leaderboard.token = self.token
             self.loans.token = self.token
@@ -1117,8 +1332,11 @@ class Api ():
             self.account = self.token
             self.warpjump = self.token
         else:
-            logging.exception(f"Code: {res.json()['error']['code']}, Message: {res.json()['error']['message']}")
+            logging.exception(
+                f"Code: {res.json()['error']['code']}, Message: {res.json()['error']['message']}"
+            )
             return None
+
 
 #
 #
@@ -1131,6 +1349,7 @@ class Agent(Client):
     """
     Get or create your agent details
     """
+
     def get_my_agent_details(self, raw_res=False, throttle_time=10):
         """Get your agent details
 
@@ -1155,8 +1374,14 @@ class Agent(Client):
         """
         endpoint = f"my/agent"
         warning_log = f"Unable to retrieve agent details"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
     def register_new_agent(self, symbol, faction, raw_res=False, throttle_time=10):
@@ -1173,12 +1398,16 @@ class Agent(Client):
         """
         endpoint = f"agents"
         warning_log = f"Unable to register new agent"
-        params = {
-            'symbol': symbol,
-            'faction': faction
-        }
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time, params=params)
+        params = {"symbol": symbol, "faction": faction}
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+            params=params,
+        )
         return res if res else {}
 
 
@@ -1188,9 +1417,10 @@ class Markets(Client):
     Args:
         Client (Client): Details to login to your agent
     """
+
     def deploy_asset(self, ship_symbol, trade_symbol, raw_res=False, throttle_time=10):
-        """Use this endpoint to deploy a Communications Relay to a waypoint. 
-            A waypoint with a communications relay will allow agents to retrieve price information from the market. 
+        """Use this endpoint to deploy a Communications Relay to a waypoint.
+            A waypoint with a communications relay will allow agents to retrieve price information from the market.
             Without a relay, agents must send a ship to a market to retrieve price information.
             Communication relays can be purchased from a market that exports COMM_RELAY_I.
 
@@ -1206,10 +1436,17 @@ class Markets(Client):
         API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDY0ODE2NDA-deploy-asset
         """
         endpoint = f"my/ships/{ship_symbol}/deploy"
-        params = {'tradeSymbol': trade_symbol}
+        params = {"tradeSymbol": trade_symbol}
         warning_log = f"Unable to deploy communicatino relay. Ship: {ship_symbol}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time, params=params)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+            params=params,
+        )
         return res if res else {}
 
     def trade_imports(self, trade_symbol, raw_res=False, throttle_time=10):
@@ -1227,8 +1464,14 @@ class Markets(Client):
         """
         endpoint = f"trade/{trade_symbol}/imports"
         warning_log = f"Unable to view trade import for trade: {trade_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
     def trade_exports(self, trade_symbol, raw_res=False, throttle_time=10):
@@ -1246,10 +1489,16 @@ class Markets(Client):
         """
         endpoint = f"trade/{trade_symbol}/exports"
         warning_log = f"Unable to view trade export for trade: {trade_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
-    
+
     def trade_exchanges(self, trade_symbol, raw_res=False, throttle_time=10):
         """TODO: Explain what this endpoint does
 
@@ -1265,12 +1514,18 @@ class Markets(Client):
         """
         endpoint = f"trade/{trade_symbol}/exchange"
         warning_log = f"Unable to view trade exchange for trade good: {trade_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
     def list_markets(self, system_symbol, raw_res=False, throttle_time=10):
-        """Retrieve a list of all charted markets in the given system. 
+        """Retrieve a list of all charted markets in the given system.
            Markets are only available if the waypoint is charted and contains a communications relay.
 
            To install a communications relay at a market, look at the my/ships/{shipSymbol}/deploy endpoint.
@@ -1282,17 +1537,25 @@ class Markets(Client):
 
         Returns:
             dict: JSON response
-        
+
         API URL: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDY0ODYwNjQ-list-markets
         """
         endpoint = f"systems/{system_symbol}/markets"
         warning_log = f"Unable to get list of markets in system: {system_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
-    def view_market(self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10):
-        """Retrieve imports, exports and exchange data from a marketplace. 
+    def view_market(
+        self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10
+    ):
+        """Retrieve imports, exports and exchange data from a marketplace.
            Imports can be sold, exports can be purchased, and exchange trades can be purchased or sold.
 
            Market data is only available if you have a ship at the location, or the location is charted and has a communications relay deployed.
@@ -1312,16 +1575,25 @@ class Markets(Client):
         """
         endpoint = f"systems/{system_symbol}/waypoints/{waypoint_symbol}/market"
         warning_log = f"Unable to get markets in system: {system_symbol} & waypoint: {waypoint_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
 
 class Trade(Client):
     "Buy and Sell cargo"
-    def purchase_cargo(self, ship_symbol, trade_symbol, units, raw_res=False, throttle_time=10):
+
+    def purchase_cargo(
+        self, ship_symbol, trade_symbol, units, raw_res=False, throttle_time=10
+    ):
         """Purchase cargo from a waypoint's market
-        
+
         Example Response:
         {
             "data": {
@@ -1345,18 +1617,24 @@ class Trade(Client):
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0Mjc-purchase-cargo
         """
         endpoint = f"my/ships/{ship_symbol}/purchase"
-        params = {
-            'tradeSymbol': trade_symbol,
-            'units': units
-        }
+        params = {"tradeSymbol": trade_symbol, "units": units}
         warning_log = f"Unable to get purchase {units} units of good: {trade_symbol} onto ship: {ship_symbol}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time, params=params)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+            params=params,
+        )
         return res if res else {}
 
-    def sell_cargo(self, ship_symbol, trade_symbol, units, raw_res=False, throttle_time=10):
+    def sell_cargo(
+        self, ship_symbol, trade_symbol, units, raw_res=False, throttle_time=10
+    ):
         """Sell cargo to a waypoint's market
-        
+
         Example Response:
         {
             "data": {
@@ -1380,18 +1658,21 @@ class Trade(Client):
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0MzA-sell-cargo
         """
         endpoint = f"my/ships/{ship_symbol}/sell"
-        params = {
-            'symbol': trade_symbol,
-            'units': units
-        }
+        params = {"symbol": trade_symbol, "units": units}
         warning_log = f"Unable to get sell {units} units of good: {trade_symbol} onto ship: {ship_symbol}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time, params=params)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+            params=params,
+        )
         return res if res else {}
 
 
 class Navigation(Client):
-
     def dock_ship(self, ship_symbol, raw_res=False, throttle_time=10):
         """Transition your ship from orbit to docked. Consecutive calls to this endpoint will succeed.
 
@@ -1408,18 +1689,24 @@ class Navigation(Client):
 
         Returns:
             dict: JSON response
-        
+
         API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0MjI-dock-ship
         """
         endpoint = f"my/ships/{ship_symbol}/dock"
         warning_log = f"Unable to dock ship: {ship_symbol}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
     def orbit_ship(self, ship_symbol, raw_res=False, throttle_time=10):
-        """Transition your ship from docked into orbit. 
-        Ships are placed into orbit by default when arriving at a destination. 
+        """Transition your ship from docked into orbit.
+        Ships are placed into orbit by default when arriving at a destination.
         Consecutive calls to this endpoint will continue to return a 200 response status.
 
         {
@@ -1435,15 +1722,21 @@ class Navigation(Client):
 
         Returns:
             dict: JSON response
-        
+
         API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0MjI-dock-ship
         """
         endpoint = f"my/ships/{ship_symbol}/orbit"
         warning_log = f"Unable to orbit ship: {ship_symbol}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
-    
+
     def jump_ship(self, ship_symbol, destination, raw_res=False, throttle_time=10):
         """Navigate a ship between systems
 
@@ -1459,12 +1752,19 @@ class Navigation(Client):
         API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0MjY-jump-ship
         """
         endpoint = f"my/ships/{ship_symbol}/jump"
-        params = {'destination': destination}
+        params = {"destination": destination}
         warning_log = f"Unable to jump ship: {ship_symbol} to System: {destination}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time, params=params)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+            params=params,
+        )
         return res if res else {}
-    
+
     def refuel_ship(self, ship_symbol, raw_res=False, throttle_time=10):
         """Fully refuel a ship
 
@@ -1488,8 +1788,14 @@ class Navigation(Client):
         """
         endpoint = f"my/ships/{ship_symbol}/refuel"
         warning_log = f"Unable to refuel ship: {ship_symbol}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
     def navigate_ship(self, ship_symbol, destination, raw_res=False, throttle_time=10):
@@ -1521,10 +1827,19 @@ class Navigation(Client):
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ5MzQ3MzU-navigate-ship
         """
         endpoint = f"my/ships/{ship_symbol}/navigate"
-        params = {'waypointSymbol': destination}
-        warning_log = f"Unable to navigate ship: {ship_symbol} to waypoint: {destination}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time, params=params)
+        params = {"waypointSymbol": destination}
+        warning_log = (
+            f"Unable to navigate ship: {ship_symbol} to waypoint: {destination}"
+        )
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+            params=params,
+        )
         return res if res else {}
 
     def navigation_status(self, ship_symbol, raw_res=False, throttle_time=10):
@@ -1537,19 +1852,34 @@ class Navigation(Client):
 
         Returns:
             dict: JSON response
-        
+
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ5MzQ3MzY-navigation-status
         """
         endpoint = f"my/ships/{ship_symbol}/nav"
         warning_log = f"Unable to get navigation status for ship: {ship_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
 
 class Contracts(Client):
     """Endpoints to handle contracts"""
-    def deliver_contract(self, ship_symbol, contract_id, trade_symbol, units, raw_res=False, throttle_time=10):
+
+    def deliver_contract(
+        self,
+        ship_symbol,
+        contract_id,
+        trade_symbol,
+        units,
+        raw_res=False,
+        throttle_time=10,
+    ):
         """Deliver cargo on a given contract.
 
         Args:
@@ -1566,14 +1896,21 @@ class Contracts(Client):
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDQ2NjQ0MjE-deliver-on-contract
         """
         endpoint = f"my/contracts/{contract_id}/deliver"
-        params={
-            'shipSymbol': ship_symbol,
-            'tradeSymbol': trade_symbol,
-            'units': units
+        params = {
+            "shipSymbol": ship_symbol,
+            "tradeSymbol": trade_symbol,
+            "units": units,
         }
         warning_log = f"Unable to deliver trade goods for contract: {ship_symbol}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time, params=params)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+            params=params,
+        )
         return res if res else {}
 
     def list_contracts(self, raw_res=False, throttle_time=10):
@@ -1590,8 +1927,14 @@ class Contracts(Client):
         """
         endpoint = f"my/contracts"
         warning_log = f"Unable to get a list of your contracts"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
     def contract_details(self, contract_id, raw_res=False, throttle_time=10):
@@ -1607,8 +1950,14 @@ class Contracts(Client):
         """
         endpoint = f"my/contracts/{contract_id}"
         warning_log = f"Unable to get details of contract: {contract_id}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
     def accept_contract(self, contract_id, raw_res=False, throttle_time=10):
@@ -1626,16 +1975,23 @@ class Contracts(Client):
         """
         endpoint = f"my/contracts/{contract_id}/accept"
         warning_log = f"Unable to accept contract: {contract_id}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
 
 class Extract(Client):
     """Functions related to extracting resources from a waypoint"""
-    def extract_resource(self, ship_symbol, survey = {}, raw_res=False, throttle_time=10):
-        """Extract resources from the waypoint into your ship. 
-        Send a survey as the payload to target specific yields. 
+
+    def extract_resource(self, ship_symbol, survey={}, raw_res=False, throttle_time=10):
+        """Extract resources from the waypoint into your ship.
+        Send a survey as the payload to target specific yields.
         The entire survey must be sent as it contains a signature that the backend verifies.
 
         Example Response:
@@ -1666,18 +2022,25 @@ class Extract(Client):
         """
         endpoint = f"my/ships/{ship_symbol}/extract"
         warning_log = f"Unable to extract resources: {ship_symbol}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time, params=survey)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+            params=survey,
+        )
         return res if res else {}
 
     def survey_waypoint(self, ship_symbol, raw_res=False, throttle_time=10):
-        """If you want to target specific yields for an extraction, you can survey a waypoint, 
-        such as an asteroid field, and send the survey in the body of the extract request. 
-        Each survey may have multiple deposits, and if a symbol shows up more than once, 
+        """If you want to target specific yields for an extraction, you can survey a waypoint,
+        such as an asteroid field, and send the survey in the body of the extract request.
+        Each survey may have multiple deposits, and if a symbol shows up more than once,
         that indicates a higher chance of extracting that resource.
 
-        Your ship will enter a cooldown between consecutive survey requests. 
-        Surveys will eventually expire after a period of time. 
+        Your ship will enter a cooldown between consecutive survey requests.
+        Surveys will eventually expire after a period of time.
         Multiple ships can use the same survey for extraction.
 
         Args:
@@ -1692,14 +2055,23 @@ class Extract(Client):
         """
         endpoint = f"my/ships/{ship_symbol}/survey"
         warning_log = f"Unable to perform a survey of a waypoint: {ship_symbol}"
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
 
 class Shipyard(Client):
     """Function specific to handling shipyard"""
-    def purchase_ship(self, listing_id, raw_res=False, throttle_time=10):
+
+    def purchase_ship(
+        self, ship_type, waypoint_symbol, raw_res=False, throttle_time=10
+    ):
         """Purchase a ship
 
         Args:
@@ -1713,10 +2085,17 @@ class Shipyard(Client):
             API Link: https://spacetraders.stoplight.io/docs/spacetraders/b3A6NDUyNDAzMDc-purchase-ship
         """
         endpoint = f"my/ships"
-        warning_log = f"Unable to purchase ship with listing id: {listing_id}"
-        params = {'id': listing_id}
-        res = self.generic_api_call("POST", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time, params=params)
+        warning_log = f"Unable to purchase ship with listing id: {ship_type} at {waypoint_symbol}"
+        params = {"shipType": ship_type, "waypointSymbol": waypoint_symbol}
+        res = self.generic_api_call(
+            "POST",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+            params=params,
+        )
         return res if res else {}
 
     def list_shipyards(self, system_symbol, raw_res=False, throttle_time=10):
@@ -1734,11 +2113,19 @@ class Shipyard(Client):
         """
         endpoint = f"systems/{system_symbol}/shipyards"
         warning_log = f"Unable to view shipyards in system: {system_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
-    def shipyard_details(self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10):
+    def shipyard_details(
+        self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10
+    ):
         """Get details about a shipyard
 
         Args:
@@ -1754,11 +2141,19 @@ class Shipyard(Client):
         """
         endpoint = f"systems/{system_symbol}/shipyards/{waypoint_symbol}"
         warning_log = f"Unable to view shipyard in system: {system_symbol}, waypoint: {waypoint_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
-    def shipyard_listings(self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10):
+    def shipyard_listings(
+        self, system_symbol, waypoint_symbol, raw_res=False, throttle_time=10
+    ):
         """View ships available for purchase in shipyard
 
         Args:
@@ -1772,8 +2167,14 @@ class Shipyard(Client):
         """
         endpoint = f"systems/{system_symbol}/shipyards/{waypoint_symbol}/ships"
         warning_log = f"Unable to view ships in shipyard in system: {system_symbol}, waypoint: {waypoint_symbol}"
-        res = self.generic_api_call("GET", endpoint, token=self.token, warning_log=warning_log,
-                                    raw_res=raw_res, throttle_time=throttle_time)
+        res = self.generic_api_call(
+            "GET",
+            endpoint,
+            token=self.token,
+            warning_log=warning_log,
+            raw_res=raw_res,
+            throttle_time=throttle_time,
+        )
         return res if res else {}
 
 
