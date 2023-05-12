@@ -135,32 +135,28 @@ class Client:
                     code = error["error"]["code"]
                     message = error["error"]["message"]
 
+                    # If throttling error
+                    if code == 429:
+                        raise ThrottleException(error)
+
                     # If cooldown error
                     if code == 4000:
                         if raw_res:
                             return r
                         else:
                             return r.json()
-
-                    logging.warning(
-                        f"An error code {code} has occurred when hitting: {r.request.method} {r.url} with parameters: {params}. Error: "
-                        + str(error)
-                    )
-
-                    # If throttling error
-                    if code == 429:
-                        raise ThrottleException(error)
-
+                    
                     # Retry if server error
                     if code == 500 or code == 409 or code == 503:
                         raise ServerException(error)
 
                     # Unknown handling for error
-                    logging.warning(warning_log)
-                    logging.exception(
-                        f"Something broke the script. Code: {code} Error Message: {message} "
+                    logging.warning(f"{warning_log} with error: {message}")
+                    logging.debug(
+                        f"An error code {code} has occurred when hitting: {r.request.method} {r.url} with parameters: {params}. Error: "
+                        + str(error)
                     )
-                    return False
+                    return {}
                 # If successful return r
                 if raw_res:
                     return r
