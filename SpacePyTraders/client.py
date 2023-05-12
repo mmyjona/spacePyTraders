@@ -168,12 +168,15 @@ class Client:
                     return r.json()
 
             except ThrottleException as te:
-                logging.info(te.message)
+                logging.info("throttled, wait 0.2")
+                time.sleep(0.2)
+                logging.debug(te.message)
                 time.sleep(throttle_time)
                 continue
 
             except ServerException as se:
-                logging.info(se.message)
+                logging.warn(se.message)
+                time.sleep(1)
                 time.sleep(throttle_time)
                 continue
 
